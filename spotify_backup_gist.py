@@ -57,37 +57,28 @@ def main():
     spotify_api = 'https://api.spotify.com/v1'
     playlist_url = f'{spotify_api}/users/{USER_ID}/playlists'
     gist_url = f"https://api.github.com/gists/{GIST_ID_DATABASE}"
-
+    
     headers = {'Authorization': f'Bearer {ACCESS_TOKEN}'}
 
-    r = requests.get(playlist_url, headers=headers)
-    r.raise_for_status()
-    user_playlists = r.json()
+    user_playlists = requests.get(playlist_url, headers=headers).json()
 
-    playlists = [{"id": p['id'], "name": p['name']} for p in user_playlists.get('items', [])]
-
+    playlists = [{"id": playlist['id'], "name": playlist['name']} for playlist in user_playlists['items']]
+    
     for playlist in playlists:
-        url = f'{spotify_api}/playlists/{playlist["id"]}/tracks'
-        r = requests.get(url, headers=headers)
-        r.raise_for_status()
-        playlist_tracks = r.json()
-        tracks = [
-            {
-                'track_id': t['track']['id'],
-                'artist': t['track']['artists'][0]['name'],
-                'name': t['track']['name']
-            }
-            for t in playlist_tracks.get('items', []) if t.get('track')
-        ]
-        playlist['tracks'] = tracks
+        url = f'{spotify_api}/playlists/{playlist['id']}/tracks'
+        
+        playlist_tracks = requests.get(url, headers=headers).json()
+        tracks = [{'track_id': track['track']['id'], 'artist': track['track']['artists'][0]['name'], 'name': track['track']['name']} for track in playlist_tracks['items']]
 
-    content = json.dumps(playlists, indent=2, ensure_ascii=False)
+        playlist['tracks'] = tracks
+        
+    content = json.dumps(playlists, indent=2)
     description = f'Backup realizado em {time.strftime("%d/%m/%Y as %H:%M:%S", time.localtime())}'
-    gist_headers = {"Authorization": f"token {GIST_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+    headers = {"Authorization": f"token {GIST_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 
     data = {"description": description, "files": {GIST_FILE_DATABASE: {"content": content}}}
 
-    response = requests.patch(gist_url, headers=gist_headers, json=data)
+    response = requests.patch(gist_url, headers=headers, json=data)
 
     if response.status_code == 200:
         logging.info("Backup realizado com sucesso!")
