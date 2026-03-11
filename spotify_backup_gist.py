@@ -61,6 +61,7 @@ def main():
         logging.info("Backup realizado com sucesso!")
     else:
         logging.error(f"Falha ao realizar o backup: {response.status_code}, {response.text}")
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
