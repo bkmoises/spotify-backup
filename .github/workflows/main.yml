@@ -22,7 +22,7 @@ jobs:
         env:
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
-          GIST_ID_DATABASE: ${{ secrets.GIST_ID_DATABASE }}
+          GIST_ID_DATABASE: ${{ secrets.GIST_ID }}
           USER_ID: ${{ secrets.USER_ID }}
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
