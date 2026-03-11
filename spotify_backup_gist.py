@@ -4,30 +4,8 @@ import time
 import logging
 import requests
 from dotenv import load_dotenv
-from typing import Dict, Optional
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
-def get_file_from_gist(gist_id: str, gist_token: str, file_name: str) -> Optional[Dict]:
-    headers = {'Authorization': f'token {gist_token}'}
-    url = f'https://api.github.com/gists/{gist_id}'
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        data = response.json()
-        files = data.get('files', {})
-        if file_name in files:
-            return json.loads(files[file_name]['content'])
-        else:
-            logging.warning(f"Arquivo não encontrado: {file_name}")
-            return {}
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Erro ao fazer a requisição: {e}")
-    except json.JSONDecodeError as e:
-        logging.error(f"Erro ao decodificar o JSON: {e}")
-    except KeyError as e:
-        logging.error(f"Erro: Chave ausente na resposta: {e}")
-    return None
 
 def get_access_token_from_refresh(refresh_token, client_id, client_secret):
     url = 'https://accounts.spotify.com/api/token'
@@ -43,41 +21,40 @@ def get_access_token_from_refresh(refresh_token, client_id, client_secret):
 
 def main():
     load_dotenv()
-
-    REFRESH_TOKEN      = os.getenv('REFRESH_TOKEN')
-    GIST_TOKEN         = os.getenv('GIST_TOKEN')
-    GIST_ID_DATABASE   = os.getenv('GIST_ID_DATABASE')
-    GIST_FILE_DATABASE = 'spotify-backup.json'
-    USER_ID            = os.getenv('USER_ID')
-    CLIENT_ID          = os.getenv('CLIENT_ID')
-    CLIENT_SECRET      = os.getenv('CLIENT_SECRET')
-
-    ACCESS_TOKEN = get_access_token_from_refresh(REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET)
-
-    spotify_api = 'https://api.spotify.com/v1'
-    playlist_url = f'{spotify_api}/users/{USER_ID}/playlists'
-    gist_url = f"https://api.github.com/gists/{GIST_ID_DATABASE}"
     
-    headers = {'Authorization': f'Bearer {ACCESS_TOKEN}'}
+    GIST_ID       = os.getenv('GIST_ID')
+    GIST_TOKEN    = os.getenv('GIST_TOKEN')
+    USER_ID       = os.getenv('USER_ID')
+    CLIENT_ID     = os.getenv('CLIENT_ID')
+    CLIENT_SECRET = os.getenv('CLIENT_SECRET')
+    REFRESH_TOKEN = os.getenv('REFRESH_TOKEN')
 
+    spotify_api   = 'https://api.spotify.com/v1'
+    playlist_url  = f'{spotify_api}/users/{USER_ID}/playlists'
+    gist_url      = f"https://api.github.com/gists/{GIST_ID}"
+    gist_file     = 'spotify-backup.json'
+
+    ACCESS_TOKEN  = get_access_token_from_refresh(REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET)
+        
+    headers = {'Authorization': f'Bearer {ACCESS_TOKEN}'}
     user_playlists = requests.get(playlist_url, headers=headers).json()
 
     playlists = [{"id": playlist['id'], "name": playlist['name']} for playlist in user_playlists['items']]
-    
     for playlist in playlists:
-        url = f'{spotify_api}/playlists/{playlist['id']}/tracks'
+        playlist_tracks = []
+        url = f"{spotify_api}/playlists/{playlist['id']}/tracks"
+        while url:
+            playlist_node = requests.get(url, headers=headers).json()
+            playlist_tracks.extend(playlist_node.get("items", []))
+            url = playlist_node.get("next")
         
-        playlist_tracks = requests.get(url, headers=headers).json()
-        tracks = [{'track_id': track['track']['id'], 'artist': track['track']['artists'][0]['name'], 'name': track['track']['name']} for track in playlist_tracks['items']]
-
-        playlist['tracks'] = tracks
+        playlist['tracks'] = [{'track_id': track['track']['id'], 'artist': track['track']['artists'][0]['name'], 'name': track['track']['name']} for track in playlist_tracks]
         
     content = json.dumps(playlists, indent=2)
     description = f'Backup realizado em {time.strftime("%d/%m/%Y as %H:%M:%S", time.localtime())}'
     headers = {"Authorization": f"token {GIST_TOKEN}", "Accept": "application/vnd.github.v3+json"}
-
-    data = {"description": description, "files": {GIST_FILE_DATABASE: {"content": content}}}
-
+    data = {"description": description, "files": {gist_file: {"content": content}}}
+    
     response = requests.patch(gist_url, headers=headers, json=data)
 
     if response.status_code == 200:
