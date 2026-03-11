@@ -23,6 +23,13 @@ def get_access_token_from_refresh(refresh_token, client_id, client_secret):
 def main():
     load_dotenv()
     
+    required_envs = ["GIST_ID", "GIST_TOKEN", "USER_ID", "CLIENT_ID", "CLIENT_SECRET", "REFRESH_TOKEN"]
+    
+    missing = [var for var in required_envs if not os.getenv(var)]
+    if missing:
+        logging.error(f"Variáveis de ambiente faltando: {', '.join(missing)}")
+        sys.exit(1)
+    
     GIST_ID       = os.getenv('GIST_ID')
     GIST_TOKEN    = os.getenv('GIST_TOKEN')
     USER_ID       = os.getenv('USER_ID')
